@@ -2,8 +2,8 @@ function superFunc (f, func) {
 	return function SuperClass (...argv) {
 		this.evaluate = function(...argvUnknowns) {
 			let result = [];
-			for (const a in argv) {
-				result[a] = (argv[a]).evaluate(...argvUnknowns);
+			for (let i = 0; i < argv.length; i++) {
+				result[i] = (argv[i]).evaluate(...argvUnknowns);
 			}
 			return f(...result);
 		};
@@ -26,63 +26,19 @@ function superFunc (f, func) {
 	}
 }
 
-function med (...argv) {			
-	let result = 0;
-	let length = argv.length;
-	for (let i = 0; i < length; i++) {
-		for (let j = i+1; j < length; j++) {
-			if (argv[i] > argv[j]) {
-				let buffer
-				buffer = argv[i];
-				argv[i] = argv[j];
-				argv[j] = buffer; 
-			}
-		}
-	}
-	return argv[(argv.length-1)/2];
-}
-
-function arm (...argv) {			
-	let result = 0;
-	let length = argv.length;
-    for (let i = 0; i < length; i++) {
-    	result += argv[i];
-    }
-	return (result/length);
-}
-
-function gem (...argv) {			
-	let result = 1;
-	let length = argv.length;
-    for (let i = 0; i < length; i++) {
-    	result *= argv[i];
-    }
-	return Math.pow(Math.abs(result), 1/length);
-}
-
-function ham (...argv) {			
-	let result = 0;
-	let length = argv.length;
-    for (let i = 0; i < length; i++) {
-    	result += (1/argv[i]);
-    }
-	return ((length) / result);
-}
-
 let Add 		= superFunc(((a, b) => a + b), "+");
 let Subtract 	= superFunc(((a, b) => a - b), "-");
 let Multiply 	= superFunc(((a, b) => a * b), "*");
 let Divide 		= superFunc(((a, b) => a / b), "/");
 let Negate 		= superFunc(((a) => -a), "negate");
+let Min3 		= superFunc(((...argv) => Math.min(... argv)), "min3");
+let Max5 		= superFunc(((...argv) => Math.max(... argv)), "max5");
+let Sinh 		= superFunc(((a) => Math.sinh(a)), "sinh");
+let Cosh  		= superFunc(((a) => Math.cosh(a)), "cosh");
 
-let Avg5 		= superFunc (arm, "avg5");
-let Med3 		= superFunc (med, "med3");
-let ArithMean  	= superFunc (arm, "arith-mean");
-let GeomMean   	= superFunc (gem, "geom-mean");
-let HarmMean   	= superFunc (ham, "harm-mean");
 
 function Const (a) {
-	this.evaluate = function(...argvUnknowns) {return a};
+	this.evaluate = function() {return a};
 	this.toString = function()  {return (a + "");};
 	this.prefix   = function()  {return (a + "");};
 } 
@@ -95,13 +51,148 @@ function unknownToNumber (string) {
 }
 
 function Variable (a) {
-	this.evaluate = function(...argvUnknowns) {
-		return argvUnknowns[unknownToNumber(a)];
-	};
-	this.toString = function()  {return a};
-	this.prefix   = function()  {return a};
+	this.evaluate 	= function(...argvUnknowns) {return argvUnknowns[unknownToNumber(a)];};
+	this.toString 	= function()  {return (a + "");};
+	this.prefix 	= function()  {return (a + "");};
 }
 
+function multi_pop(stack, n)
+{
+	let result = [];
+	for (let i = 0; i < n; i++)
+		result.push(stack.pop());
+	return result.reverse();
+}
+
+function parse(input) {
+	let split = input.trim().split(/\s+/);
+	//console.log(split);
+
+	let stack = [];
+
+	for (let i = 0; i < split.length; i++)
+	{
+		//console.log(split[i]);
+		switch(split[i])
+		{
+			case "+": 		stack.push(new Add		(... multi_pop(stack, 2))); break;
+			case "-": 		stack.push(new Subtract	(... multi_pop(stack, 2))); break;
+			case "/": 		stack.push(new Divide	(... multi_pop(stack, 2))); break;
+			case "*": 		stack.push(new Multiply	(... multi_pop(stack, 2))); break;
+			case "min3": 	stack.push(new Min3		(... multi_pop(stack, 3))); break;
+			case "max5": 	stack.push(new Max5		(... multi_pop(stack, 5))); break;
+
+			case "sinh": 	stack.push(new Sinh		(stack.pop())); break;	
+			case "cosh": 	stack.push(new Sinh		(stack.pop())); break;	
+			case "negate": 	stack.push(new Negate	(stack.pop())); break;			
+			default:
+			{
+				let p = split[i];
+				if(p === "x" || p === "y" || p === "z")
+					stack.push(new Variable(p));
+				else
+					stack.push(new Const(parseInt(p)));
+				break;
+			}
+		}
+		//console.log(stack);		
+	}
+	return stack.pop();
+}
+
+
+function multi_apply(argv, n)
+{
+	let result = [];
+	for (let i = 0; i < n; i++)
+		result.push(parsePrefix(argv[i]));
+	return result;
+}
+
+Array.prototype.check_na = function(correct_length) {
+	if(this.length !== correct_length) throw Error("Incorrect number of arguments.");
+}
+
+function parsePrefix(input) {
+	//console.log(input)
+	let split = input.trim();
+	if(split.length === 0) throw Error("Empty string.");
+
+	if (split[0] === "(" && split[split.length - 1] === ")")
+	{
+		//split = split.slice(1, split.length-1).trim().replace(/\s+/g, " ");
+		let op = "";
+		let i = 1;
+		for(; split[i] === " " && i < split.length - 1; i++);
+		for(; split[i] !== " " && split[i] !== "(" && i < split.length - 1; i++)
+			op += split[i];
+		let argv = [];
+		let buffer = "";
+		while(i < split.length - 1)
+		{
+			if(split[i] === "(")
+			{
+				let bs = 1;
+				buffer += split[i++];
+				for(; bs !== 0 && i < split.length - 1; i++)
+				{
+					if(split[i] === "(")
+						bs++;
+					if(split[i] === ")")
+						bs--;
+					buffer += split[i];
+				}
+				if(bs !== 0)
+					throw Error("Incorrect bracket sequence.");
+				argv.push(buffer);
+				buffer = "";
+			}
+			else if(split[i] !== " ")
+			{
+				for(; split[i] !== " " && split[i] !== "(" && i < split.length - 1; i++)
+					buffer += split[i];
+				argv.push(buffer);
+				buffer = "";
+			}
+			else
+				i++;
+		}
+		//console.log(argv);
+		switch(op)
+		{
+			case "+": 		argv.check_na(2); 	return new Add		(... multi_apply(argv, 2)); 
+			case "-": 		argv.check_na(2); 	return new Subtract	(... multi_apply(argv, 2)); 
+			case "/": 		argv.check_na(2);	return new Divide	(... multi_apply(argv, 2)); 
+			case "*": 		argv.check_na(2); 	return new Multiply	(... multi_apply(argv, 2)); 
+			case "min3": 	argv.check_na(3);	return new Min3		(... multi_apply(argv, 3)); 
+			case "max5": 	argv.check_na(5);	return new Max5		(... multi_apply(argv, 5)); 
+			case "sinh": 	argv.check_na(1);	return new Sinh		(... multi_apply(argv, 1)); 		
+			case "cosh": 	argv.check_na(1);	return new Cosh		(... multi_apply(argv, 1)); 
+			case "negate": 	argv.check_na(1);	return new Negate	(... multi_apply(argv, 1)); 
+
+			default:
+			{
+				throw Error("Incorrect operation.");
+			}
+		}
+	}
+	else
+	{
+		//console.log("two");
+		if(split === "x" || split === "y" || split === "z")
+			return new Variable(split);
+		else
+		{
+			let number = +split;
+			if (isNaN(number))
+				throw Error("Incorrect Const.");
+			return new Const(number);
+		}
+	}
+}//*/
+
+
+/*
 //the function controls spaces in the expression, 
 // results in a view where all elements are separated by spaces
 function preprocessing (string) {
@@ -279,8 +370,8 @@ function parsePrefix(string) {
 	let n = -1;
 	let result;
 
-	/*const map = new Map();
-	map.set('+', "Add");*/
+	//const map = new Map();
+	//map.set('+', "Add");
 
 	if (op == '+') {
 		n = 2;
@@ -321,4 +412,4 @@ function parsePrefix(string) {
 	}
 
 	return result;
-}
+}//*/
