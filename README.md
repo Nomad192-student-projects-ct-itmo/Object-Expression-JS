@@ -1,6 +1,6 @@
 # Object Expression in JavaScript
 
-## Домашнее задание 7. Объектные выражения на JavaScript
+## Объектные выражения на JavaScript
 * Разработайте классы `Const`, `Variable`, `Add`, `Subtract`, `Multiply`, `Divide`, `Negate` для представления выражений с тремя переменными: `x`, `y` и `z`.
   + Пример описания выражения `2x-3`:
   ```JavaScript
